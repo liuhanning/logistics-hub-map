@@ -297,11 +297,13 @@ function applyFilters() {
 
     if (visible) {
       marker.show();
-      if (marker.label) marker.label.show();
+      // 如果城市名称应该显示，则显示标签
+      if (state.showCityNames && marker.cityLabelEl) {
+        marker.cityLabelEl.classList.add('show');
+      }
       visibleCount++;
     } else {
       marker.hide();
-      if (marker.label) marker.label.hide();
     }
   });
 
@@ -910,6 +912,7 @@ function init() {
   searchClearEl = document.getElementById('search-clear');
   searchResultsEl = document.getElementById('search-results');
   sidebarToggleEl = document.getElementById('sidebar-toggle');
+  toggleCityNamesEl = document.getElementById('toggle-city-names');
 
   console.log('DOM 元素获取:', {
     hubTypesEl: !!hubTypesEl,
