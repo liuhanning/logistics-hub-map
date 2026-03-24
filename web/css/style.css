@@ -762,6 +762,189 @@ html, body {
 }
 
 /* ===================================
+   多类型枢纽标记 - 环形堆叠设计
+   =================================== */
+.hub-marker-multi {
+  position: relative;
+  cursor: pointer;
+  border-radius: 50%;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.2),
+    0 0 0 1.5px rgba(255, 255, 255, 0.95);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hub-marker-multi:hover {
+  transform: scale(1.3);
+  z-index: 1000 !important;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 0 0 2px rgba(255, 255, 255, 1);
+}
+
+/* 环形渐变层 - 使用 conic-gradient 实现分段颜色 */
+.hub-marker-multi-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+/* 内圆 - 白色背景 + 类型数量徽章 */
+.hub-marker-multi-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 45%;
+  height: 45%;
+  border-radius: 50%;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gray-700);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 多类型标记的悬停提示 */
+.hub-marker-multi .hub-tooltip {
+  position: absolute;
+  background: rgba(31, 41, 55, 0.95);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 100000 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: translate(-50%, -100%) translateY(-4px);
+  transition: all 0.15s ease;
+  margin-top: -2px;
+}
+
+.hub-marker-multi .hub-tooltip.show {
+  opacity: 1;
+  transform: translate(-50%, -100%) translateY(-8px);
+  z-index: 100000 !important;
+}
+
+/* 多类型信息窗口样式 */
+.hub-info-multi {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.hub-info-multi-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 16px 20px;
+  border-radius: 12px 12px 0 0;
+}
+
+.hub-info-multi-title {
+  font-weight: 700;
+  font-size: 16px;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.hub-info-multi-subtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.hub-info-multi-body {
+  padding: 16px 20px;
+  background: #fff;
+}
+
+.hub-info-multi-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.hub-info-multi-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hub-info-multi-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--gray-50);
+  border-radius: 8px;
+  border: 1px solid var(--gray-100);
+  transition: all 0.15s ease;
+}
+
+.hub-info-multi-item:hover {
+  background: var(--primary-50);
+  border-color: var(--primary-200);
+  transform: translateX(2px);
+}
+
+.hub-info-multi-type {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #fff;
+  min-width: 70px;
+  text-align: center;
+}
+
+.hub-info-multi-batch {
+  font-size: 11px;
+  color: var(--gray-500);
+  margin-left: auto;
+}
+
+/* 单类型信息窗口（保持兼容） */
+.hub-info-single {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.hub-info-single-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 16px 20px;
+}
+
+.hub-info-single-title {
+  font-weight: 700;
+  font-size: 16px;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.hub-info-single-subtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.hub-info-single-body {
+  padding: 16px 20px;
+  background: #fff;
+}
+
+/* ===================================
    图例样式
    =================================== */
 .legend-block {

@@ -28,7 +28,8 @@ const state = {
   infoWindow: null,
   sidebarCollapsed: false,
   searchResults: [],
-  showCityNames: true
+  showCityNames: true,
+  hubsByCity: {} // 按城市分组的枢纽
 };
 
 // DOM 元素
@@ -287,13 +288,38 @@ function bindFilterButtons() {
 // 应用筛选
 function applyFilters() {
   let visibleCount = 0;
+  let visibleHubCount = 0;
 
   state.markers.forEach(marker => {
-    const hub = marker.hub;
-    const typeMatch = state.selectedTypes.has(hub.type);
-    const batchMatch = !hub.batch || state.selectedBatches.has(hub.batch);
-    const provinceMatch = state.selectedProvinces.has(hub.province);
-    const visible = typeMatch && batchMatch && provinceMatch;
+    let visible = false;
+
+    // 处理多类型标记
+    if (marker.cityGroup) {
+      const { hubs, province } = marker.cityGroup;
+      const types = new Set(hubs.map(h => h.type));
+
+      // 类型匹配：只要城市有任何选中的类型就匹配
+      const typeMatch = [...types].some(t => state.selectedTypes.has(t));
+      const batchMatch = hubs.every(h => !h.batch || state.selectedBatches.has(h.batch));
+      const provinceMatch = state.selectedProvinces.has(province);
+      visible = typeMatch && batchMatch && provinceMatch;
+
+      // 计算可见的枢纽数量
+      if (visible) {
+        visibleHubCount += hubs.length;
+      }
+    } else {
+      // 处理单类型标记
+      const hub = marker.hub;
+      const typeMatch = state.selectedTypes.has(hub.type);
+      const batchMatch = !hub.batch || state.selectedBatches.has(hub.batch);
+      const provinceMatch = state.selectedProvinces.has(hub.province);
+      visible = typeMatch && batchMatch && provinceMatch;
+
+      if (visible) {
+        visibleHubCount++;
+      }
+    }
 
     if (visible) {
       marker.show();
@@ -309,7 +335,7 @@ function applyFilters() {
 
   // 更新状态文本
   if (statusEl) {
-    statusEl.textContent = `显示 ${visibleCount}/${HUBS.length} 个枢纽`;
+    statusEl.textContent = `显示 ${visibleCount} 个城市 / ${visibleHubCount} 个枢纽`;
   }
 
   // 更新统计图表
@@ -322,101 +348,25 @@ function applyFilters() {
 function createMarkers() {
   const fragment = [];
 
-  // 用于检测重复坐标的 Map
-  const coordCount = new Map();
+  // 按城市分组枢纽
+  state.hubsByCity = groupHubsByCity();
 
-  HUBS.forEach(hub => {
-    if (!hub.location) return;
+  // 遍历每个城市组
+  Object.values(state.hubsByCity).forEach(cityGroup => {
+    const { hubs } = cityGroup;
+    const uniqueTypes = new Set(hubs.map(h => h.type));
 
-    const color = TYPE_COLORS[hub.type] || '#999';
-
-    // 检测是否有重复坐标，如果有则添加微小偏移
-    const coordKey = `${hub.location.lng.toFixed(4)},${hub.location.lat.toFixed(4)}`;
-    const count = coordCount.get(coordKey) || 0;
-    coordCount.set(coordKey, count + 1);
-
-    // 计算偏移量（每个重复点偏移 0.008 度，约 800 米）
-    const offsetX = (count % 3) * 0.008;
-    const offsetY = Math.floor(count / 3) * 0.008;
-    const lng = hub.location.lng + offsetX;
-    const lat = hub.location.lat + offsetY;
-
-    // 创建标记点容器
-    const markerEl = document.createElement('div');
-    markerEl.className = 'hub-marker';
-    markerEl.style.width = `${MARKER_SIZES.default * 2.2}px`;
-    markerEl.style.height = `${MARKER_SIZES.default * 2.2}px`;
-
-    // 基底颜色层
-    const baseEl = document.createElement('div');
-    baseEl.className = 'hub-marker-base';
-    baseEl.style.background = color;
-    markerEl.appendChild(baseEl);
-
-    // 渐变层 - 微妙 3D 感
-    const gradientEl = document.createElement('div');
-    gradientEl.className = 'hub-marker-gradient';
-    markerEl.appendChild(gradientEl);
-
-    // 内发光 - 非常 subtle
-    const glowEl = document.createElement('div');
-    glowEl.className = 'hub-marker-glow';
-    glowEl.style.background = `radial-gradient(circle, ${lightenColor(color, 40)} 0%, transparent 70%)`;
-    markerEl.appendChild(glowEl);
-
-    // 城市名称标签
-    const cityLabelEl = document.createElement('div');
-    cityLabelEl.className = 'city-label';
-    cityLabelEl.textContent = hub.city;
-    markerEl.appendChild(cityLabelEl);
-
-    const marker = new AMap.Marker({
-      position: [lng, lat],
-      content: markerEl,
-      offset: new AMap.Pixel(-MARKER_SIZES.default * 1.1, -MARKER_SIZES.default * 1.1),
-      zIndex: 100
-    });
-
-    marker.hub = hub;
-    marker.markerEl = markerEl;
-    marker.cityLabelEl = cityLabelEl;
-    marker.setMap(map);
-
-    // 创建悬停提示（独立元素，添加到 map 容器）
-    const tooltipEl = document.createElement('div');
-    tooltipEl.className = 'hub-tooltip';
-    tooltipEl.innerHTML = `
-      <div class="hub-tooltip-name">${hub.name}</div>
-      <div class="hub-tooltip-type">${hub.type}</div>
-    `;
-    tooltipEl.style.display = 'none';
-    document.getElementById('map').appendChild(tooltipEl);
-
-    // 悬停显示提示
-    markerEl.addEventListener('mouseenter', (e) => {
-      e.stopPropagation();
-      const rect = markerEl.getBoundingClientRect();
-      const mapRect = document.getElementById('map').getBoundingClientRect();
-      tooltipEl.style.display = 'block';
-      tooltipEl.style.left = (rect.left - mapRect.left + rect.width / 2) + 'px';
-      tooltipEl.style.top = (rect.top - mapRect.top) + 'px';
-      setTimeout(() => tooltipEl.classList.add('show'), 10);
-    });
-
-    markerEl.addEventListener('mouseleave', (e) => {
-      e.stopPropagation();
-      tooltipEl.classList.remove('show');
-      setTimeout(() => {
-        if (!tooltipEl.classList.contains('show')) {
-          tooltipEl.style.display = 'none';
-        }
-      }, 150);
-    });
-
-    // 点击显示详情
-    marker.on('click', () => showHubInfo(marker));
-
-    fragment.push(marker);
+    // 如果城市有多个类型的枢纽，创建多类型标记
+    if (uniqueTypes.size > 1) {
+      const marker = createMultiTypeMarker(cityGroup);
+      fragment.push(marker);
+    } else {
+      // 否则为每个枢纽创建单独标记
+      hubs.forEach(hub => {
+        const marker = createSingleMarker(hub);
+        fragment.push(marker);
+      });
+    }
   });
 
   state.markers = fragment;
@@ -444,6 +394,207 @@ function darkenColor(color, percent) {
   return `rgb(${R}, ${G}, ${B})`;
 }
 
+// 按城市分组枢纽
+function groupHubsByCity() {
+  const hubsByCity = {};
+
+  HUBS.forEach(hub => {
+    if (!hub.location) return; // 跳过没有坐标的枢纽
+
+    const key = `${hub.city}_${hub.province}`;
+    if (!hubsByCity[key]) {
+      hubsByCity[key] = {
+        city: hub.city,
+        province: hub.province,
+        location: hub.location,
+        hubs: []
+      };
+    }
+    hubsByCity[key].hubs.push(hub);
+  });
+
+  return hubsByCity;
+}
+
+// 生成环形渐变 CSS
+function generateConicGradient(types) {
+  if (types.length === 0) return '';
+
+  const segmentSize = 360 / types.length;
+  const stops = [];
+
+  types.forEach((type, index) => {
+    const color = TYPE_COLORS[type] || '#999';
+    const start = index * segmentSize;
+    const end = (index + 1) * segmentSize;
+    stops.push(`${color} ${start}deg ${end}deg`);
+  });
+
+  return `conic-gradient(${stops.join(', ')})`;
+}
+
+// 创建多类型标记
+function createMultiTypeMarker(cityGroup) {
+  const { city, province, location, hubs } = cityGroup;
+
+  // 获取唯一的类型列表
+  const types = [...new Set(hubs.map(h => h.type))];
+
+  // 创建标记点容器
+  const markerEl = document.createElement('div');
+  markerEl.className = 'hub-marker-multi';
+  markerEl.style.width = `${MARKER_SIZES.default * 2.2}px`;
+  markerEl.style.height = `${MARKER_SIZES.default * 2.2}px`;
+
+  // 环形渐变层
+  const ringEl = document.createElement('div');
+  ringEl.className = 'hub-marker-multi-ring';
+  ringEl.style.background = generateConicGradient(types);
+  markerEl.appendChild(ringEl);
+
+  // 内圆 - 显示类型数量
+  const centerEl = document.createElement('div');
+  centerEl.className = 'hub-marker-multi-center';
+  centerEl.textContent = types.length;
+  markerEl.appendChild(centerEl);
+
+  // 城市名称标签
+  const cityLabelEl = document.createElement('div');
+  cityLabelEl.className = 'city-label';
+  cityLabelEl.textContent = city;
+  markerEl.appendChild(cityLabelEl);
+
+  const marker = new AMap.Marker({
+    position: [location.lng, location.lat],
+    content: markerEl,
+    offset: new AMap.Pixel(-MARKER_SIZES.default * 1.1, -MARKER_SIZES.default * 1.1),
+    zIndex: 100
+  });
+
+  marker.cityGroup = cityGroup;
+  marker.markerEl = markerEl;
+  marker.cityLabelEl = cityLabelEl;
+  marker.setMap(map);
+
+  // 创建悬停提示（显示所有类型）
+  const tooltipEl = document.createElement('div');
+  tooltipEl.className = 'hub-tooltip';
+  tooltipEl.innerHTML = `
+    <div class="hub-tooltip-name">${city} · ${types.length}种类型</div>
+    <div class="hub-tooltip-type">${types.join(' / ')}</div>
+  `;
+  tooltipEl.style.display = 'none';
+  document.getElementById('map').appendChild(tooltipEl);
+
+  // 悬停显示提示
+  markerEl.addEventListener('mouseenter', (e) => {
+    e.stopPropagation();
+    const rect = markerEl.getBoundingClientRect();
+    const mapRect = document.getElementById('map').getBoundingClientRect();
+    tooltipEl.style.display = 'block';
+    tooltipEl.style.left = (rect.left - mapRect.left + rect.width / 2) + 'px';
+    tooltipEl.style.top = (rect.top - mapRect.top) + 'px';
+    setTimeout(() => tooltipEl.classList.add('show'), 10);
+  });
+
+  markerEl.addEventListener('mouseleave', (e) => {
+    e.stopPropagation();
+    tooltipEl.classList.remove('show');
+    setTimeout(() => {
+      if (!tooltipEl.classList.contains('show')) {
+        tooltipEl.style.display = 'none';
+      }
+    }, 150);
+  });
+
+  // 点击显示详情
+  marker.on('click', () => showMultiTypeHubInfo(marker));
+
+  return marker;
+}
+
+// 创建单类型标记
+function createSingleMarker(hub) {
+  const color = TYPE_COLORS[hub.type] || '#999';
+
+  // 创建标记点容器
+  const markerEl = document.createElement('div');
+  markerEl.className = 'hub-marker';
+  markerEl.style.width = `${MARKER_SIZES.default * 2.2}px`;
+  markerEl.style.height = `${MARKER_SIZES.default * 2.2}px`;
+
+  // 基底颜色层
+  const baseEl = document.createElement('div');
+  baseEl.className = 'hub-marker-base';
+  baseEl.style.background = color;
+  markerEl.appendChild(baseEl);
+
+  // 渐变层 - 微妙 3D 感
+  const gradientEl = document.createElement('div');
+  gradientEl.className = 'hub-marker-gradient';
+  markerEl.appendChild(gradientEl);
+
+  // 内发光
+  const glowEl = document.createElement('div');
+  glowEl.className = 'hub-marker-glow';
+  glowEl.style.background = `radial-gradient(circle, ${lightenColor(color, 40)} 0%, transparent 70%)`;
+  markerEl.appendChild(glowEl);
+
+  // 城市名称标签
+  const cityLabelEl = document.createElement('div');
+  cityLabelEl.className = 'city-label';
+  cityLabelEl.textContent = hub.city;
+  markerEl.appendChild(cityLabelEl);
+
+  const marker = new AMap.Marker({
+    position: [hub.location.lng, hub.location.lat],
+    content: markerEl,
+    offset: new AMap.Pixel(-MARKER_SIZES.default * 1.1, -MARKER_SIZES.default * 1.1),
+    zIndex: 100
+  });
+
+  marker.hub = hub;
+  marker.markerEl = markerEl;
+  marker.cityLabelEl = cityLabelEl;
+  marker.setMap(map);
+
+  // 创建悬停提示
+  const tooltipEl = document.createElement('div');
+  tooltipEl.className = 'hub-tooltip';
+  tooltipEl.innerHTML = `
+    <div class="hub-tooltip-name">${hub.name}</div>
+    <div class="hub-tooltip-type">${hub.type}</div>
+  `;
+  tooltipEl.style.display = 'none';
+  document.getElementById('map').appendChild(tooltipEl);
+
+  // 悬停显示提示
+  markerEl.addEventListener('mouseenter', (e) => {
+    e.stopPropagation();
+    const rect = markerEl.getBoundingClientRect();
+    const mapRect = document.getElementById('map').getBoundingClientRect();
+    tooltipEl.style.display = 'block';
+    tooltipEl.style.left = (rect.left - mapRect.left + rect.width / 2) + 'px';
+    tooltipEl.style.top = (rect.top - mapRect.top) + 'px';
+    setTimeout(() => tooltipEl.classList.add('show'), 10);
+  });
+
+  markerEl.addEventListener('mouseleave', (e) => {
+    e.stopPropagation();
+    tooltipEl.classList.remove('show');
+    setTimeout(() => {
+      if (!tooltipEl.classList.contains('show')) {
+        tooltipEl.style.display = 'none';
+      }
+    }, 150);
+  });
+
+  // 点击显示详情
+  marker.on('click', () => showHubInfo(marker));
+
+  return marker;
+}
+
 // 更新城市名称显示状态
 function updateCityLabels() {
   state.markers.forEach(marker => {
@@ -457,18 +608,18 @@ function updateCityLabels() {
   });
 }
 
-// 显示枢纽信息
+// 显示枢纽信息（单类型）
 function showHubInfo(marker) {
   const hub = marker.hub;
   const typeColor = TYPE_COLORS[hub.type] || '#999';
 
   const content = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 16px 20px;">
-        <div style="font-weight: 700; font-size: 16px; color: #fff; margin-bottom: 4px;">${hub.name}</div>
-        <div style="font-size: 12px; color: rgba(255,255,255,0.8);">${hub.city} · ${hub.province}</div>
+    <div class="hub-info-single">
+      <div class="hub-info-single-header">
+        <div class="hub-info-single-title">${hub.name}</div>
+        <div class="hub-info-single-subtitle">${hub.city} · ${hub.province}</div>
       </div>
-      <div style="padding: 16px 20px; background: #fff;">
+      <div class="hub-info-single-body">
         <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
           <span style="background: ${typeColor}; color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${hub.type}</span>
           <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;">${hub.batch || '未定批次'}</span>
@@ -482,6 +633,53 @@ function showHubInfo(marker) {
             <div style="font-size: 10px; color: #999; text-transform: uppercase; margin-bottom: 2px;">城市</div>
             <div style="font-size: 13px; font-weight: 600; color: #333;">${hub.city}</div>
           </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  state.infoWindow.setContent(content);
+  state.infoWindow.open(map, marker.getPosition());
+}
+
+// 显示多类型枢纽信息
+function showMultiTypeHubInfo(marker) {
+  const cityGroup = marker.cityGroup;
+  const { city, province, hubs } = cityGroup;
+
+  // 按类型分组
+  const hubsByType = {};
+  hubs.forEach(hub => {
+    if (!hubsByType[hub.type]) {
+      hubsByType[hub.type] = [];
+    }
+    hubsByType[hub.type].push(hub);
+  });
+
+  const types = Object.keys(hubsByType);
+
+  const content = `
+    <div class="hub-info-multi">
+      <div class="hub-info-multi-header">
+        <div class="hub-info-multi-title">${city} · ${types.length}种类型</div>
+        <div class="hub-info-multi-subtitle">${province}</div>
+      </div>
+      <div class="hub-info-multi-body">
+        <div class="hub-info-multi-count">${hubs.length} 个枢纽</div>
+        <div class="hub-info-multi-list">
+          ${types.map(type => {
+            const typeHubs = hubsByType[type];
+            const typeColor = TYPE_COLORS[type] || '#999';
+            return `
+              <div class="hub-info-multi-item">
+                <span class="hub-info-multi-type" style="background: ${typeColor}">${type}</span>
+                <span style="font-size: 12px; color: var(--gray-600);">
+                  ${typeHubs.map(h => h.name.replace(city, '').trim()).filter(Boolean).join(', ') || type}
+                </span>
+                ${typeHubs[0].batch ? `<span class="hub-info-multi-batch">${typeHubs[0].batch}</span>` : ''}
+              </div>
+            `;
+          }).join('')}
         </div>
       </div>
     </div>
@@ -686,9 +884,21 @@ function selectHub(hub) {
   map.setZoom(10, true);
 
   // 找到对应的标记并显示信息窗口
-  const marker = state.markers.find(m => m.hub.name === hub.name);
+  const marker = state.markers.find(m => {
+    // 处理多类型标记
+    if (m.cityGroup) {
+      return m.cityGroup.city === hub.city && m.cityGroup.province === hub.province;
+    }
+    // 处理单类型标记
+    return m.hub && m.hub.name === hub.name;
+  });
+
   if (marker) {
-    showHubInfo(marker);
+    if (marker.cityGroup) {
+      showMultiTypeHubInfo(marker);
+    } else {
+      showHubInfo(marker);
+    }
   }
 
   // 侧边栏在移动端自动折叠
