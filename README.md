@@ -54,10 +54,10 @@ zixun_pro/
 
 ```bash
 cd web
-python -m http.server 8080
+python -m http.server 8008
 ```
 
-然后访问：http://localhost:8080
+然后访问：http://localhost:8008
 
 ### 生成/更新数据
 
