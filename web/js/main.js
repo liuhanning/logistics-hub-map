@@ -367,7 +367,7 @@ function createMarkers() {
     // 城市名称标签
     const cityLabelEl = document.createElement('div');
     cityLabelEl.className = 'city-label';
-    cityLabelEl.textContent = `${hub.city} · ${hub.type}`;
+    cityLabelEl.textContent = hub.city;
     markerEl.appendChild(cityLabelEl);
 
     const marker = new AMap.Marker({
