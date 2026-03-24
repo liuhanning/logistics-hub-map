@@ -27,7 +27,8 @@ const state = {
   markers: [],
   infoWindow: null,
   sidebarCollapsed: false,
-  searchResults: []
+  searchResults: [],
+  showCityNames: true
 };
 
 // DOM 元素
@@ -36,6 +37,7 @@ let toolbarEl, tabsEl, panelMapEl, panelStatsEl;
 let hubTypesEl, hubBatchesEl, hubProvincesEl, legendEl, statusEl;
 let typesAllBtn, typesNoneBtn, batchesAllBtn, batchesNoneBtn, provincesAllBtn, provincesNoneBtn;
 let searchInputEl, searchClearEl, searchResultsEl, sidebarToggleEl;
+let toggleCityNamesEl;
 
 // 初始化地图
 function initMap() {
@@ -360,6 +362,12 @@ function createMarkers() {
     glowEl.style.background = `radial-gradient(circle, ${lightenColor(color, 40)} 0%, transparent 70%)`;
     markerEl.appendChild(glowEl);
 
+    // 城市名称标签
+    const cityLabelEl = document.createElement('div');
+    cityLabelEl.className = 'city-label';
+    cityLabelEl.textContent = hub.city;
+    markerEl.appendChild(cityLabelEl);
+
     const marker = new AMap.Marker({
       position: [lng, lat],
       content: markerEl,
@@ -369,6 +377,7 @@ function createMarkers() {
 
     marker.hub = hub;
     marker.markerEl = markerEl;
+    marker.cityLabelEl = cityLabelEl;
     marker.setMap(map);
 
     // 创建悬停提示（独立元素，添加到 map 容器）
@@ -409,6 +418,9 @@ function createMarkers() {
   });
 
   state.markers = fragment;
+
+  // 初始化城市名称显示状态
+  updateCityLabels();
 }
 
 // 颜色变亮/变暗工具函数
@@ -428,6 +440,19 @@ function darkenColor(color, percent) {
   const G = Math.max(0, ((num >> 8) & 0x00FF) - amt);
   const B = Math.max(0, (num & 0x0000FF) - amt);
   return `rgb(${R}, ${G}, ${B})`;
+}
+
+// 更新城市名称显示状态
+function updateCityLabels() {
+  state.markers.forEach(marker => {
+    if (marker.cityLabelEl) {
+      if (state.showCityNames) {
+        marker.cityLabelEl.classList.add('show');
+      } else {
+        marker.cityLabelEl.classList.remove('show');
+      }
+    }
+  });
 }
 
 // 显示枢纽信息
@@ -492,6 +517,17 @@ function initSidebarAndSearch() {
   // 侧边栏折叠/展开
   if (sidebarToggleEl) {
     sidebarToggleEl.addEventListener('click', toggleSidebar);
+  }
+
+  // 城市名称显示/隐藏切换
+  if (toggleCityNamesEl) {
+    const checkbox = toggleCityNamesEl.querySelector('input[type="checkbox"]');
+    if (checkbox) {
+      checkbox.addEventListener('change', (e) => {
+        state.showCityNames = e.target.checked;
+        updateCityLabels();
+      });
+    }
   }
 
   // 搜索功能
