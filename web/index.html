@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>国家物流枢纽布局图</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="text/javascript">
+    window._AMapSecurityConfig = {
+      securityJsCode: '1acf31e6fec21ecda33981b3f9972b2f'
+    };
+  </script>
+  <script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=63012397200899138fc66edc8f54a72a"></script>
+</head>
+<body>
+  <div id="app">
+    <!-- 左侧控制面板 -->
+    <div id="toolbar">
+      <div class="brand">
+        <div class="brand-kicker">全国物流枢纽</div>
+        <div class="brand-title">国家物流枢纽布局图</div>
+        <div class="brand-sub">截至 2025 年 2 月 · 国家发改委公布名单</div>
+      </div>
+
+      <!-- 搜索框 -->
+      <div class="search-container">
+        <div class="search-box">
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 20 20" fill="none">
+            <path d="M17.5 17.5L12.5 12.5M14.1667 8.33333C14.1667 11.555 11.555 14.1667 8.33335 14.1667C5.11169 14.1667 2.5 11.555 2.5 8.33333C2.5 5.11169 5.11169 2.5 8.33335 2.5C11.555 2.5 14.1667 5.11169 14.1667 8.33333Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <input type="text" id="search-input" class="search-input" placeholder="搜索枢纽名称或城市..." />
+          <button id="search-clear" class="search-clear" title="清空搜索">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M10.5 3.5L3.5 10.5M3.5 3.5L10.5 10.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div id="search-results" class="search-results"></div>
+      </div>
+
+      <!-- Tab 切换 -->
+      <div id="tabs" class="tabs">
+        <button class="tab active" data-tab="map">地图总览</button>
+        <button class="tab" data-tab="stats">统计分析</button>
+      </div>
+
+      <!-- 地图模式面板 -->
+      <div id="panel-map" class="panel-section">
+        <div class="panel-title">筛选条件</div>
+
+        <!-- 枢纽类型筛选 -->
+        <div class="block">
+          <div class="block-title">枢纽类型</div>
+          <div id="hub-types" class="chip-grid"></div>
+          <div class="toolbar-row">
+            <button id="types-all" class="btn">全选</button>
+            <button id="types-none" class="btn">清空</button>
+          </div>
+        </div>
+
+        <!-- 批次筛选 -->
+        <div class="block">
+          <div class="block-title">建设批次</div>
+          <div id="hub-batches" class="chip-grid"></div>
+          <div class="toolbar-row">
+            <button id="batches-all" class="btn">全选</button>
+            <button id="batches-none" class="btn">清空</button>
+          </div>
+        </div>
+
+        <!-- 省份筛选 -->
+        <div class="block">
+          <div class="block-title">省份/直辖市</div>
+          <div id="hub-provinces" class="chip-grid"></div>
+          <div class="toolbar-row">
+            <button id="provinces-all" class="btn">全选</button>
+            <button id="provinces-none" class="btn">清空</button>
+          </div>
+        </div>
+
+        <!-- 图例 -->
+        <div class="block">
+          <div class="block-title">图例</div>
+          <div id="legend" class="legend-block"></div>
+        </div>
+
+        <!-- 状态显示 -->
+        <div class="status-row">
+          <div id="status" class="status-text">正在加载数据…</div>
+        </div>
+      </div>
+
+      <!-- 统计分析面板 -->
+      <div id="panel-stats" class="panel-section" hidden>
+        <div class="panel-title">统计分析</div>
+
+        <div class="stats-block">
+          <div class="stat-card">
+            <div class="stat-value" id="stat-total">0</div>
+            <div class="stat-label">枢纽总数</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-cities">0</div>
+            <div class="stat-label">覆盖城市</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-provinces">0</div>
+            <div class="stat-label">覆盖省份</div>
+          </div>
+        </div>
+
+        <div class="stats-chart">
+          <div class="chart-title">按类型分布</div>
+          <div id="chart-type" class="bar-chart"></div>
+        </div>
+
+        <div class="stats-chart">
+          <div class="chart-title">按批次分布</div>
+          <div id="chart-batch" class="bar-chart"></div>
+        </div>
+
+        <div class="stats-chart">
+          <div class="chart-title">省份 TOP10</div>
+          <div id="chart-province" class="bar-chart"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 地图容器 -->
+    <div id="map">
+      <!-- 折叠按钮 (固定在地图上) -->
+      <button id="sidebar-toggle" class="map-sidebar-toggle" title="展开/折叠侧边栏">
+        <svg class="toggle-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script charset="utf-8" src="js/data.js"></script>
+  <script charset="utf-8" src="js/main.js"></script>
+</body>
+</html>
