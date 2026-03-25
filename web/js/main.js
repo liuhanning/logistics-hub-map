@@ -909,15 +909,12 @@ function selectHub(hub) {
 
 // 渲染统计数据
 function renderStats() {
-  // 计算当前筛选下的统计
-  const visibleHubs = state.markers
-    .filter(m => {
-      const hub = m.hub;
-      return state.selectedTypes.has(hub.type) &&
-        (!hub.batch || state.selectedBatches.has(hub.batch)) &&
-        state.selectedProvinces.has(hub.province);
-    })
-    .map(m => m.hub);
+  // 从原始数据计算统计，而不是从 markers
+  const visibleHubs = HUBS.filter(h => {
+    return state.selectedTypes.has(h.type) &&
+      (!h.batch || state.selectedBatches.has(h.batch)) &&
+      state.selectedProvinces.has(h.province);
+  });
 
   // 更新卡片
   const statTotal = document.getElementById('stat-total');
